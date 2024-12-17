@@ -1,10 +1,46 @@
-// NuMaker-PFM-NUC472 : I2C1 LCD draw bitmap
 #include "mbed.h"
 #include "ssd1306.h"
+#include "draw2D.h"
 
-I2C i2c1(PD_12, PD_10); // I2C1_SDA, I2C1_SCL
+/* Select one demo exclusively */
+#define DEMO_DRAWBMP        1
+#define DEMO_MOVINGCIRCLE   0
+#define DEMO_PRINTLINE      0
 
-SSD1306 LCD;
+using namespace mbed_nuvoton;
+
+#if TARGET_NUMAKER_PFM_NUC472
+SSD1306 LCD(PD_12, PD_10, SSD1306_slave_addr, 400000);
+#endif
+
+Draw2D  D2D(LCD);
+
+#if DEMO_DRAWBMP
+void demo_drawBMP(void);
+#elif DEMO_MOVINGCIRCLE
+void demo_movingcircle(void);
+#elif DEMO_PRINTLINE
+void demo_printline(void);
+#endif
+
+int main() {
+
+    LCD.initialize();
+    LCD.clearscreen();
+
+#if DEMO_DRAWBMP
+    demo_drawBMP();
+#elif DEMO_MOVINGCIRCLE
+    demo_movingcircle();
+#elif DEMO_PRINTLINE
+    demo_printline();
+#endif
+
+    return 0;
+}
+
+
+#if DEMO_DRAWBMP
 
 unsigned char BMP_128x64_Nuvoton_NuMaker[128*8] = { // Nuvoton NuMaker Logo 
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
@@ -28,17 +64,64 @@ unsigned char BMP_64x64_Academic[64*8] = {
     0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1F,0x1F,0x00,0x03,0x0C,0x1F,0x1F,0x00,0x0F,0x1F,0x10,0x10,0x1F,0x1F,0x00,0x00,0x1F,0x1F,0x01,0x07,0x1C,0x07,0x01,0x1F,0x1F,0x00,0x0C,0x1E,0x12,0x1F,0x1F,0x00,0x1F,0x1F,0x06,0x1F,0x19,0x00,0x0F,0x1F,0x12,0x12,0x13,0x13,0x00,0x1F,0x1F,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
 };
 
-int main() {
-    
-    i2c1.frequency(400000); 
-    
-    LCD.initialize();
-    LCD.clearscreen();
-    
+void demo_drawBMP(void)
+{
     while(true) {
-            LCD.drawBMP(BMP_128x64_Nuvoton_NuMaker);
-            LCD.clearscreen();
-            LCD.drawBmp64x64(32, 0, FG_COLOR, BG_COLOR, BMP_64x64_Academic);
-            Thread::wait(500);
-        }
+        LCD.drawBMP(BMP_128x64_Nuvoton_NuMaker);
+        LCD.clearscreen();
+        LCD.drawBmp64x64(32, 0, FG_COLOR, BG_COLOR, BMP_64x64_Academic);
+        ThisThread::sleep_for(500ms);
+    }
 }
+
+#elif DEMO_MOVINGCIRCLE
+
+#define X0 15       // Circle initial X 
+#define Y0 10       // Circle initial Y
+
+void demo_movingcircle(void)
+{
+    int dirX, dirY;
+    int movX, movY;
+    int r;
+    int x, y;
+
+    x = X0;   // circle center x
+    y = Y0;   // circle center y
+    r = 3;    // circle radius
+
+    movX = 3; // x movement
+    movY = 3; // y movement
+    dirX = 1; // x direction
+    dirY = 1; // y direction
+
+    while(true) {
+       D2D.drawCircle(x, y, r, FG_COLOR, BG_COLOR); // draw a circle
+
+       ThisThread::sleep_for(1s); // Delay for Vision
+
+       D2D.drawCircle(x, y, r, BG_COLOR, BG_COLOR); // erase a circle
+
+       x = x + dirX * movX; // change x of circle center
+       y = y + dirY * movY; // change y of circle center 
+
+       // boundary check for changing direction       
+       if      ((x-r) <=0)        {dirX= 1; x= x + dirX*movX;}
+       else if ((x+r) >=LCD_Xmax) {dirX=-1; x= x + dirX*movX;}
+
+       if      ((y-r) <=0)        {dirY= 1; y= y + dirY*movY;}
+       else if ((y+r) >=LCD_Ymax) {dirY=-1; y= y + dirY*movY;}                    
+   }
+}
+
+#elif DEMO_PRINTLINE
+
+void demo_printline(void)
+{
+    LCD.printLine(0,"NuMaker series  ");
+    LCD.printLine(1,"Mbed CE         ");
+    LCD.printLine(2,"SSD1306 I2C-OLED");
+    LCD.printLine(3,"printLine Demo  ");
+}
+
+#endif
